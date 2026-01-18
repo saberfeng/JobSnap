@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="../styles/popup.css">
+</head>
+
+<body>
+    <div class="container">
+        <h3>JobSnap</h3>
+        <hr>
+
+        <div id="display-area">
+            <p><strong>Company:</strong> <span id="view-company">...</span></p>
+            <p><strong>Role:</strong> <span id="view-role">...</span></p>
+        </div>
+
+        <div class="manual-row-container">
+            <label>Sheet-Ready Row:</label>
+            <div id="sheet-row" contenteditable="true"></div>
+            <small>Tab-separated. Click to select & copy.</small>
+        </div>
+
+        <button id="save-btn">Save to Google Sheet</button>
+        <p id="status-msg"></p>
+    </div>
+    <script src="popup.js"></script>
+</body>
+
+</html>

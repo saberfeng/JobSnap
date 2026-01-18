@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Job Tracker Settings</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        .field {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Configuration</h2>
+    <div class="field">
+        <label>Google Web App URL:</label>
+        <input type="text" id="url" placeholder="https://script.google.com/macros/s/...your-private-key.../exec">
+    </div>
+    <div class="field">
+        <label>Secret Token (Optional):</label>
+        <input type="password" id="token" placeholder="Your private key">
+    </div>
+    <button id="save">Save Settings</button>
+    <p id="status"></p>
+
+    <script src="options.js"></script>
+</body>
+
+</html>

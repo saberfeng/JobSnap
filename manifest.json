@@ -1,0 +1,41 @@
+{
+    "manifest_version": 3,
+    "name": "JobSnap",
+    "version": "1.0",
+    "description": "Extracts job info from LinkedIn/Indeed and saves to Google Sheets.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage"
+    ],
+    "options_ui": {
+        "page": "options/options.html",
+        "open_in_tab": true
+    },
+    "host_permissions": [
+        "https://*.linkedin.com/*",
+        "https://*.indeed.com/*",
+        "https://*.seek.com.au/*",
+        "https://script.google.com/*"
+    ],
+    "action": {
+        "default_popup": "popup/popup.html",
+        "default_icon": {
+            "128": "icons/documents_3207514.png"
+        }
+    },
+    "background": {
+        "service_worker": "scripts/background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://*.linkedin.com/*",
+                "https://*.indeed.com/*"
+            ],
+            "js": [
+                "scripts/content.js"
+            ]
+        }
+    ]
+}

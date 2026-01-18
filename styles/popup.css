@@ -1,0 +1,45 @@
+body {
+    width: 300px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 10px;
+    margin: 0;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+}
+
+h3 {
+    margin: 0 0 10px 0;
+    color: #0a66c2;
+    /* LinkedIn Blue */
+}
+
+#job-info p {
+    font-size: 13px;
+    margin: 8px 0;
+    color: #333;
+}
+
+#save-btn {
+    background-color: #0a66c2;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+#save-btn:hover {
+    background-color: #004182;
+}
+
+#status-msg {
+    font-size: 11px;
+    text-align: center;
+    margin-top: 10px;
+    color: #666;
+}
