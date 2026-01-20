@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    chrome.tabs.sendMessage(tab.id, { action: "GET_JOB_INFO" }, (response) => {
+    chrome.tabs.sendMessage(tab.id, { action: "GET_JOB_BASIC_INFO" }, (response) => {
         if (response) {
             const date = new Date().toLocaleDateString();
             // Split location logic (e.g., "Central, Hong Kong SAR")
@@ -32,8 +32,57 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Save via API button
     document.getElementById('save-btn').addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: "SAVE_DATA", data: window.currentJobData }, (res) => {
+        if (!window.currentJobData) return;
+
+        // Filter data for GAS (Only send what's needed)
+        const payload = {
+            role: window.currentJobData.role,
+            company: window.currentJobData.company,
+            location: window.currentJobData.location,
+            link: window.currentJobData.link
+        };
+
+        chrome.runtime.sendMessage({ action: "SAVE_DATA", data: payload }, (res) => {
             document.getElementById('status-msg').textContent = res.success ? "✅ Saved to Sheet!" : "❌ API Error. Use manual paste.";
         });
     });
+
+    // Copy Description Button
+    document.getElementById('copy-desc-btn').addEventListener('click', () => {
+        const data = window.currentJobData;
+        if (!data) {
+             document.getElementById('status-msg').textContent = "No data to copy.";
+             return;
+        }
+
+        if (data.description) {
+            copyMarkdown(data);
+        } else {
+            document.getElementById('status-msg').textContent = "Fetching description...";
+            chrome.tabs.sendMessage(tab.id, { action: "GET_JOB_DESCRIPTION" }, (resp) => {
+                if (resp && resp.description) {
+                    data.description = resp.description;
+                    window.currentJobData.description = resp.description; // Update global state
+                    copyMarkdown(data);
+                } else {
+                    document.getElementById('status-msg').textContent = "Failed to fetch description.";
+                }
+            });
+        }
+    });
+
+    function copyMarkdown(data) {
+        const title = `${data.role} - ${data.company}`;
+        const link = data.link !== "Not Found" ? data.link : "";
+        const description = data.description || "";
+        
+        // Markdown format
+        // # [Role - Company](Link)
+        const header = link ? `# [${title}](${link})` : `# ${title}`;
+        const markdown = `${header}\n\n${description}`;
+
+        navigator.clipboard.writeText(markdown).then(() => {
+            document.getElementById('status-msg').textContent = "Job Description Copied!";
+        });
+    }
 });

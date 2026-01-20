@@ -1,5 +1,5 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "GET_JOB_INFO") {
+    if (request.action === "GET_JOB_BASIC_INFO") {
         // 1. Extract Role and Link (Same robust logic)
         const roleAnchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a');
         const roleName = roleAnchor ? roleAnchor.innerText.trim() : "Not Found";
@@ -24,6 +24,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             company: companyName,
             location: jobLocation, // e.g., "Tokyo, Tokyo, Japan" or "Central, Hong Kong SAR"
             link: jobLink
+        });
+    }
+    
+    if (request.action === "GET_JOB_DESCRIPTION") {
+        // 4. Extract Description
+        // Try multiple selectors for better coverage
+        const descriptionSelectors = [
+            '#job-details',
+            '.jobs-description__content',
+            '.job-view-layout .description'
+        ];
+        
+        let description = "Not Found";
+        for (const selector of descriptionSelectors) {
+            const el = document.querySelector(selector);
+            if (el) {
+                // Clone to modify without affecting the page
+                const clone = el.cloneNode(true);
+                
+                // Replace <br> with newline
+                clone.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
+                
+                // Handle list items to look like Markdown bullets
+                clone.querySelectorAll('li').forEach(li => {
+                    const bullet = document.createTextNode("- ");
+                    li.prepend(bullet);
+                });
+                
+                // Get text. innerText handles block elements by adding newlines.
+                description = clone.innerText.trim();
+                break;
+            }
+        }
+
+        sendResponse({
+            description: description
         });
     }
     return true;
