@@ -1,0 +1,40 @@
+.ai-tag-wrapper {
+    margin-top: 8px;
+    display: flex;
+    gap: 4px;
+}
+
+.ai-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.ai-tag-positive {
+    background: #e6f4ea;
+    color: #1e8e3e;
+}
+
+.ai-tag-negative {
+    background: #fce8e6;
+    color: #d93025;
+}
+
+.ai-tag-neutral {
+    background: #f1f3f4;
+    color: #5f6368;
+}
+
+.ai-loading {
+    font-size: 10px;
+    color: #0a66c2;
+    animation: flash 1s infinite;
+}
+
+@keyframes flash {
+    50% {
+        opacity: 0.5;
+    }
+}

@@ -1,4 +1,4 @@
-# Job Application Tracker Extension 🚀
+# JobSnap - A Job Application Tracker Extension 🚀
 
 An open-source Chrome Extension designed to streamline the job application process. With one click, extract job details (Role, Company, Location, and Link) from **LinkedIn** and sync them directly to your own **Google Sheet**.
 

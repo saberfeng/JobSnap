@@ -1,16 +1,30 @@
-document.getElementById('save').addEventListener('click', () => {
-    const url = document.getElementById('url').value;
-    const token = document.getElementById('token').value;
+document.getElementById('save-settings').addEventListener('click', () => {
+    const config = {
+        qwenUrl: document.getElementById('qwen-url').value,
+        qwenKey: document.getElementById('qwen-key').value,
+        userProfile: {
+            langs: document.getElementById('user-langs').value,
+            visas: document.getElementById('user-visas').value,
+            exp: document.getElementById('user-exp').value,
+            prefLang: document.getElementById('jd-pref-lang').value
+        }
+    };
 
-    chrome.storage.sync.set({ webAppUrl: url, secretToken: token }, () => {
-        const status = document.getElementById('status');
-        status.textContent = 'Settings saved!';
-        setTimeout(() => { status.textContent = ''; }, 2000);
+    chrome.storage.sync.set(config, () => {
+        const status = document.getElementById('status-msg');
+        status.textContent = "Settings saved successfully!";
+        setTimeout(() => status.textContent = "", 3000);
     });
 });
 
-// Load existing settings
-chrome.storage.sync.get(['webAppUrl', 'secretToken'], (items) => {
-    if (items.webAppUrl) document.getElementById('url').value = items.webAppUrl;
-    if (items.secretToken) document.getElementById('token').value = items.secretToken;
+// Load settings on startup
+chrome.storage.sync.get(['qwenUrl', 'qwenKey', 'userProfile'], (data) => {
+    if (data.qwenUrl) document.getElementById('qwen-url').value = data.qwenUrl;
+    if (data.qwenKey) document.getElementById('qwen-key').value = data.qwenKey;
+    if (data.userProfile) {
+        document.getElementById('user-langs').value = data.userProfile.langs || "";
+        document.getElementById('user-visas').value = data.userProfile.visas || "";
+        document.getElementById('user-exp').value = data.userProfile.exp || 0;
+        document.getElementById('jd-pref-lang').value = data.userProfile.prefLang || "";
+    }
 });

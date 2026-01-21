@@ -16,7 +16,8 @@
         "https://*.linkedin.com/*",
         "https://*.indeed.com/*",
         "https://*.seek.com.au/*",
-        "https://script.google.com/*"
+        "https://script.google.com/*",
+        "https://dashscope.aliyuncs.com/*"
     ],
     "action": {
         "default_popup": "popup/popup.html",
@@ -35,6 +36,9 @@
             ],
             "js": [
                 "scripts/content.js"
+            ],
+            "css": [
+                "styles/content.css"
             ]
         }
     ]

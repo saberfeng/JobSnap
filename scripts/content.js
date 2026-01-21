@@ -7,8 +7,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         getJobDescription();
         return true;
     }
-
-    if (request.action == "")
     return true;
 });
 
@@ -20,11 +18,11 @@ function getJobBasicInfo() {
         const path = roleAnchor.getAttribute('href').split('?')[0];
         jobLink = path.startsWith('http') ? path : `https://www.linkedin.com${path}`;
     }
-    
+
     // 2. Extract Company
     const companyAnchor = document.querySelector('.job-details-jobs-unified-top-card__company-name a');
     const companyName = companyAnchor ? companyAnchor.innerText.trim() : "Not Found";
-    
+
     // 3. Precise Location Extraction
     // We target the FIRST span with the specific LinkedIn emphasis class
     const locElement = document.querySelector(
@@ -47,7 +45,7 @@ function getJobDescription() {
         '.jobs-description__content',
         '.job-view-layout .description'
     ];
-    
+
     let description = "Not Found";
     for (const selector of descriptionSelectors) {
         const el = document.querySelector(selector);
@@ -95,20 +93,20 @@ function htmlToMarkdown(element) {
 
         // Clean up content for block elements
         // (Don't trim inline content to preserve spacing between words)
-        
+
         switch (tag) {
             case 'h1': return `\n# ${content.trim()}\n\n`;
             case 'h2': return `\n## ${content.trim()}\n\n`;
             case 'h3': return `\n### ${content.trim()}\n\n`;
             case 'h4': return `\n#### ${content.trim()}\n\n`;
             case 'h5': return `\n##### ${content.trim()}\n\n`;
-            
-            case 'p': 
+
+            case 'p':
                 return `\n\n${content.trim()}\n\n`;
-            
-            case 'br': 
+
+            case 'br':
                 return '  \n'; // Markdown line break (2 spaces + newline)
-            
+
             case 'div':
             case 'section':
             case 'article':
@@ -125,7 +123,7 @@ function htmlToMarkdown(element) {
             case 'li':
                 // Always use bullets for simplicity. 
                 // Ensure content is trimmed so the bullet is close to text.
-                return `\n- ${content.trim()}`; 
+                return `\n- ${content.trim()}`;
 
             case 'b':
             case 'strong':
@@ -162,3 +160,89 @@ function htmlToMarkdown(element) {
     // but let's clean up leading/trailing newlines)
     return md.trim();
 }
+
+function injectAITags(card, analysis) {
+    // Remove loading indicator if it exists
+    const loader = card.querySelector('.ai-loading-status');
+    if (loader) loader.remove();
+
+    const tagWrapper = document.createElement('div');
+    tagWrapper.className = 'ai-tag-wrapper';
+
+    const metrics = [
+        { key: 'lang_match', label: 'Lang' },
+        { key: 'visa_match', label: 'Visa' },
+        { key: 'exp_match', label: 'Exp' }
+    ];
+
+    metrics.forEach(m => {
+        const status = analysis[m.key] || 'neutral';
+        const span = document.createElement('span');
+        span.className = `ai-tag ai-tag-${status}`;
+        span.innerText = m.label;
+        tagWrapper.appendChild(span);
+    });
+
+    // Inject into the card's metadata area
+    card.appendChild(tagWrapper);
+}
+
+function showLoading(card) {
+    const loader = document.createElement('span');
+    loader.className = 'ai-loading';
+    loader.innerText = '⌛ AI...';
+    card.appendChild(loader);
+}
+
+function hideLoading(card) {
+    const loader = card.querySelector('.ai-loading');
+    if (loader) loader.remove();
+}
+
+// Function to scan the list for new, unprocessed jobs
+function scanJobCards() {
+    const cards = document.querySelectorAll('.scaffold-layout__list-item:not(.ai-processed)');
+
+    cards.forEach(card => {
+        card.classList.add('ai-processed');
+
+        // Extract the Job ID from the URL inside the card
+        const linkElement = card.querySelector('a[href*="/jobs/view/"]');
+        if (!linkElement) return;
+
+        const href = linkElement.getAttribute('href');
+        const jobIdMatch = href.match(/\/view\/(\d+)/);
+        const jobId = jobIdMatch ? jobIdMatch[1] : null;
+
+        if (jobId) {
+            // Add a small loading indicator
+            const loader = document.createElement('div');
+            loader.className = 'ai-loading-status';
+            loader.innerText = 'AI Analysing...';
+            card.appendChild(loader);
+
+            // Send to background queue for analysis
+            chrome.runtime.sendMessage({ action: "ANALYZE_BATCH", jobId }, (result) => {
+                if (result && !result.error) {
+                    injectAITags(card, result);
+                } else {
+                    loader.innerText = 'AI Failed';
+                    loader.style.color = '#d93025';
+                }
+            });
+        }
+    });
+}
+
+// Performance-optimized observer
+let timeout = null;
+const observer = new MutationObserver(() => {
+  if (timeout) clearTimeout(timeout);
+  // Throttle the scan to once every 500ms during fast scrolling
+  timeout = setTimeout(scanJobCards, 500);
+});
+
+// Start observing the job list container
+observer.observe(document.body, { childList: true, subtree: true });
+// Initial scan for jobs already on the page
+scanJobCards();
