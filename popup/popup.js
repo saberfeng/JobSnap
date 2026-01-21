@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         chrome.runtime.sendMessage({ action: "SAVE_DATA", data: payload }, (res) => {
-            document.getElementById('status-msg').textContent = res.success ? "✅ Saved to Sheet!" : "❌ API Error. Use manual paste.";
+            document.getElementById('status-msg').textContent = res.success ? "[Success] Saved to Sheet!" : "[Error] API Error. Use manual paste.";
         });
     });
 

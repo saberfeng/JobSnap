@@ -1,16 +1,16 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "GET_JOB_BASIC_INFO") {
-        getJobBasicInfo();
+        getJobBasicInfo(sendResponse);
         return true;
     }
     if (request.action === "GET_JOB_DESCRIPTION") {
-        getJobDescription();
+        getJobDescription(sendResponse);
         return true;
     }
     return true;
 });
 
-function getJobBasicInfo() {
+function getJobBasicInfo(sendResponse) {
     const roleAnchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a');
     const roleName = roleAnchor ? roleAnchor.innerText.trim() : "Not Found";
     let jobLink = "Not Found";
@@ -37,7 +37,7 @@ function getJobBasicInfo() {
     });
 }
 
-function getJobDescription() {
+function getJobDescription(sendResponse) {
     // 4. Extract Description
     // Try multiple selectors for better coverage
     const descriptionSelectors = [
@@ -190,7 +190,7 @@ function injectAITags(card, analysis) {
 function showLoading(card) {
     const loader = document.createElement('span');
     loader.className = 'ai-loading';
-    loader.innerText = '⌛ AI...';
+    loader.innerText = '[Loading...]';
     card.appendChild(loader);
 }
 

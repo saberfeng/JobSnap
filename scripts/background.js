@@ -41,30 +41,32 @@ function handleGoogleSheets(request, sender, sendResponse) {
 
 
 const QWEN_ENDPOINT = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-const systemPrompt = `
-    You are a recruiter. Analyze the JD against the user's status. 
-    User Status: ${JSON.stringify(userProfile)}
-    
-    Requirements to check:
-    1. Language: Cantonese, Japanese, English, Mandarin.
-    2. Visa: Check holding status vs JD requirement/support.
-    3. Experience: Compare years.
-    4. JD Language: Is it the expected language?
 
-    Return ONLY a JSON object:
-    {
-      "lang_match": "positive" | "negative" | "neutral",
-      "visa_match": "positive" | "negative" | "neutral",
-      "exp_match": "positive" | "negative" | "neutral",
-      "jd_lang_match": "positive" | "negative",
-      "summary": "one short sentence"
-    }`;
 
 async function handleAIAnalysis(jdText) {
     const settings = await chrome.storage.sync.get(['qwenUrl', 'qwenKey', 'userProfile']);
     // Use the stored URL, or fall back to the Qwen default if empty
     const apiUrl = settings.qwenUrl || QWEN_ENDPOINT;
     if (!settings.qwenKey) return { error: "Missing API Key" };
+
+    const systemPrompt = `
+        You are a recruiter. Analyze the JD against the user's status. 
+        User Status: ${JSON.stringify(settings.userProfile)}
+        
+        Requirements to check:
+        1. Language: Cantonese, Japanese, English, Mandarin.
+        2. Visa: Check holding status vs JD requirement/support.
+        3. Experience: Compare years.
+        4. JD Language: Is it the expected language?
+
+        Return ONLY a JSON object:
+        {
+        "lang_match": "positive" | "negative" | "neutral",
+        "visa_match": "positive" | "negative" | "neutral",
+        "exp_match": "positive" | "negative" | "neutral",
+        "jd_lang_match": "positive" | "negative",
+        "summary": "one short sentence"
+        }`;
     try {
         const response = await fetch(apiUrl, {
             method: "POST",
@@ -75,7 +77,7 @@ async function handleAIAnalysis(jdText) {
             body: JSON.stringify({
                 model: "qwen-plus",
                 messages: [
-                    { role: "system", content: "..." }, // System prompt from previous step
+                    { role: "system", content: systemPrompt }, // System prompt from previous step
                     { role: "user", content: `JD: ${jdText}` }
                 ],
                 response_format: { type: "json_object" }
