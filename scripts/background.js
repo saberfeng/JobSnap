@@ -6,6 +6,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "ANALYZE_JD") {
         return handleAnalyzeJD(request, sender, sendResponse);
     }
+    if (request.action === "ANALYZE_WITH_CONTENT") {
+        handleAIAnalysis(request.text)
+            .then(result => sendResponse(result))
+            .catch(err => sendResponse({ error: err.message }));
+        return true;
+    }
     return true;
 });
 

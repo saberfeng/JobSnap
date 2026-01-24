@@ -70,6 +70,13 @@ function getJobBasicInfo(sendResponse) {
 }
 
 function getJobDescription(sendResponse) {
+    const description = extractDescription();
+    sendResponse({
+        description: description
+    });
+}
+
+function extractDescription() {
     // 4. Extract Description
     // Try multiple selectors for better coverage
     const descriptionSelectors = [
@@ -86,10 +93,7 @@ function getJobDescription(sendResponse) {
             break;
         }
     }
-
-    sendResponse({
-        description: description
-    });
+    return description;
 }
 
 /**
@@ -232,6 +236,9 @@ function hideLoading(card) {
 }
 
 // Function to scan the list for new, unprocessed jobs
+const jobQueue = [];
+let isProcessingQueue = false;
+
 function scanJobCards() {
     const cards = document.querySelectorAll('.scaffold-layout__list-item:not(.ai-processed)');
 
@@ -250,19 +257,110 @@ function scanJobCards() {
             // Add a small loading indicator
             const loader = document.createElement('div');
             loader.className = 'ai-loading-status';
-            loader.innerText = 'AI Analysing...';
+            loader.innerText = 'Queued...';
             card.appendChild(loader);
 
-            // Send to background queue for analysis
-            chrome.runtime.sendMessage({ action: "ANALYZE_JD", jobId }, (result) => {
-                if (result && !result.error) {
-                    injectAITags(card, result);
-                } else {
-                    loader.innerText = 'AI Failed';
-                    loader.style.color = '#d93025';
-                }
-            });
+            jobQueue.push({ card, jobId, loader });
         }
+    });
+
+    processJobQueue();
+}
+
+async function processJobQueue() {
+    if (isProcessingQueue || jobQueue.length === 0) return;
+    isProcessingQueue = true;
+
+    const { card, jobId, loader } = jobQueue.shift();
+    loader.innerText = 'Clicking...';
+
+    try {
+        // 1. Click the card to load details
+        // Find the clickable container (usually the title or the card itself)
+        // a.job-card-list__title--link
+        const clickTarget = card.querySelector('a.job-card-list__title--link') || card;
+        
+        // Scroll into view to ensure click works and mimics user
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Small delay after scroll
+        await new Promise(r => setTimeout(r, 300));
+        
+        clickTarget.click();
+        loader.innerText = 'Loading JD...';
+
+        // 2. Wait for the right panel to load the specific Job ID
+        const loaded = await waitForJobDetailsLoad(jobId);
+        
+        if (loaded) {
+            loader.innerText = 'AI Analysing...';
+            // 3. Extract Description
+            const description = extractDescription();
+            
+            if (description && description.length > 50) {
+                 // 4. Send to background
+                 const result = await sendMessageAsync({ 
+                     action: "ANALYZE_WITH_CONTENT", 
+                     text: description 
+                 });
+
+                 if (result && !result.error) {
+                     injectAITags(card, result);
+                 } else {
+                     loader.innerText = 'AI Failed';
+                     loader.style.color = '#d93025';
+                 }
+            } else {
+                 loader.innerText = 'No JD Text';
+            }
+        } else {
+            loader.innerText = 'Load Timeout';
+        }
+
+    } catch (e) {
+        console.error("Job Processing Error", e);
+        loader.innerText = 'Error';
+    }
+
+    // Process next with a delay to allow UI to settle
+    setTimeout(() => {
+        isProcessingQueue = false;
+        processJobQueue();
+    }, 1500);
+}
+
+function sendMessageAsync(msg) {
+    return new Promise(resolve => {
+        chrome.runtime.sendMessage(msg, response => {
+            resolve(response);
+        });
+    });
+}
+
+function waitForJobDetailsLoad(jobId) {
+    return new Promise(resolve => {
+        let checks = 0;
+        const interval = setInterval(() => {
+            checks++;
+            // Check URL param
+            const params = new URLSearchParams(window.location.search);
+            const currentId = params.get('currentJobId');
+            
+            if (currentId === jobId) {
+                // Wait a tiny bit more for text to render
+                setTimeout(() => {
+                    clearInterval(interval);
+                    resolve(true);
+                }, 500);
+                return;
+            }
+
+            // Timeout after 5 seconds
+            if (checks > 50) {
+                clearInterval(interval);
+                resolve(false);
+            }
+        }, 100);
     });
 }
 
