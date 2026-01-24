@@ -268,6 +268,10 @@ function scanJobCards() {
 }
 
 async function processJobQueue() {
+    if (!aiEnabled) {
+        isProcessingQueue = false;
+        return;
+    }
     if (isProcessingQueue || jobQueue.length === 0) return;
     isProcessingQueue = true;
 
@@ -297,7 +301,7 @@ async function processJobQueue() {
             // 3. Extract Description
             const description = extractDescription();
             
-            if (description && description.length > 50) {
+            if (aiEnabled && description && description.length > 50) {
                  // 4. Send to background
                  const result = await sendMessageAsync({ 
                      action: "ANALYZE_WITH_CONTENT", 
@@ -365,15 +369,42 @@ function waitForJobDetailsLoad(jobId) {
 }
 
 // Performance-optimized observer
-// Trailing Edge Debounce: delays execution until 500ms of silence.
 let timeout = null;
 const observer = new MutationObserver(() => {
-    if (timeout) 
-        clearTimeout(timeout);
+    if (!aiEnabled) return;
+    if (timeout) clearTimeout(timeout);
     timeout = setTimeout(scanJobCards, 500);
 });
 
-// Start observing the job list container
-observer.observe(document.body, { childList: true, subtree: true });
-// Initial scan for jobs already on the page
-scanJobCards();
+let aiEnabled = false;
+
+function startAI() {
+    if (aiEnabled) {
+        observer.observe(document.body, { childList: true, subtree: true });
+        scanJobCards();
+    }
+}
+
+function stopAI() {
+    observer.disconnect();
+    if (timeout) clearTimeout(timeout);
+    timeout = null;
+    jobQueue.length = 0;
+    isProcessingQueue = false;
+    const loaders = document.querySelectorAll('.ai-loading-status, .ai-loading');
+    loaders.forEach(el => el.remove());
+}
+
+chrome.storage.sync.get(['aiEnabled'], (s) => {
+    aiEnabled = s.aiEnabled === true;
+    if (aiEnabled) startAI();
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'sync') return;
+    if (changes.aiEnabled) {
+        aiEnabled = changes.aiEnabled.newValue === true;
+        if (aiEnabled) startAI();
+        else stopAI();
+    }
+});

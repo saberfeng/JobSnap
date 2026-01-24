@@ -51,6 +51,12 @@ let isProcessing = false;
 const queue = [];
 
 async function processQueue() {
+    const enabledSettings = await chrome.storage.sync.get(['aiEnabled']);
+    if (enabledSettings.aiEnabled === false) {
+        queue.length = 0;
+        isProcessing = false;
+        return;
+    }
     if (isProcessing || queue.length === 0) return;
     isProcessing = true;
 
@@ -95,7 +101,8 @@ const QWEN_ENDPOINT = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/co
 const model_name = "qwen-flash";
 
 async function handleAIAnalysis(jdText) {
-    const settings = await chrome.storage.sync.get(['qwenUrl', 'qwenKey', 'userProfile']);
+    const settings = await chrome.storage.sync.get(['qwenUrl', 'qwenKey', 'userProfile', 'aiEnabled']);
+    if (settings.aiEnabled === false) return { error: "Disabled" };
     // Use the stored URL, or fall back to the Qwen default if empty
     const apiUrl = settings.qwenUrl || QWEN_ENDPOINT;
     if (!settings.qwenKey) return { error: "Missing API Key" };

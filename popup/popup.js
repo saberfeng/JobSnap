@@ -31,6 +31,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // AI Toggle
+    const toggleEl = document.getElementById('ai-toggle');
+    chrome.storage.sync.get(['aiEnabled'], (s) => {
+        if (typeof s.aiEnabled === 'undefined') {
+            chrome.storage.sync.set({ aiEnabled: false });
+            toggleEl.checked = false;
+        } else {
+            toggleEl.checked = s.aiEnabled === true;
+        }
+    });
+    toggleEl.addEventListener('change', () => {
+        chrome.storage.sync.set({ aiEnabled: toggleEl.checked });
+    });
+
     // Save job info to Google Sheets via API button
     document.getElementById('save-btn').addEventListener('click', () => {
         if (!window.currentJobData) return;
