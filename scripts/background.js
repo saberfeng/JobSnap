@@ -108,26 +108,25 @@ async function handleAIAnalysis(jdText) {
     if (!settings.qwenKey) return { error: "Missing API Key" };
 
     const systemPrompt = `
-        You are a recruiter. Analyze the JD against the user's status. 
-        User Status: ${JSON.stringify(settings.userProfile)}
+        Please analyze job descriptions (JD).
+        Analyze the provided JD text and return ONLY a JSON object with the following keys and constraints.
         
-        Requirements to check:
-        1. Language: Cantonese, Japanese, English, Mandarin.
-        2. Visa: Check holding status vs JD requirement/support.
-        3. Experience: Compare years.
-        4. JD Language: Is it the expected language?
-
-        If the given content is not a proper JD, 
-        return an empty JSON object.
-
-        Return ONLY a JSON object:
-        {
-        "lang_match": "positive" | "negative" | "neutral",
-        "visa_match": "positive" | "negative" | "neutral",
-        "exp_match": "positive" | "negative" | "neutral",
-        "jd_lang_match": "positive" | "negative",
-        "summary": "one short sentence"
-        }`;
+        Required keys:
+        1) "language": array of lower-case language names present in JD requirements
+           - examples: ["english", "japanese", "cantonese", "mandarin", "french"]
+        2) "work_permit": boolean, whether the JD strictly requires candidates to have work permit
+           - candidate values: true, false
+        3) "residence_requirement": boolean
+           - candidate values: true, false
+        4) "visa_support": boolean, whether the JD mentions giving visa support
+           - candidate values: true, false
+        5) "experience": integer, years of required experience
+           - candidate values: non-negative integers: 0,1,2,3,... 
+        6) "JD_language": array of lower-case language names in which the JD is written
+           - examples: ["english"], or ["english","japanese"] if multiple languages appear
+        
+        If the text is not a valid JD, return {} (empty object).
+        Respond strictly with a JSON object. No markdown, no explanations.`;
         
     try {
         const response = await fetch(apiUrl, {
