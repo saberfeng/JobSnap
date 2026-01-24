@@ -198,29 +198,93 @@ function htmlToMarkdown(element) {
 }
 
 function injectAITags(card, analysis) {
-    // Remove loading indicator if it exists
     const loader = card.querySelector('.ai-loading-status');
     if (loader) loader.remove();
 
     const tagWrapper = document.createElement('div');
     tagWrapper.className = 'ai-tag-wrapper';
 
-    const metrics = [
-        { key: 'lang_match', label: 'Lang' },
-        { key: 'visa_match', label: 'Visa' },
-        { key: 'exp_match', label: 'Exp' }
-    ];
+    chrome.storage.sync.get(['userProfile'], (data) => {
+        const profile = normalizeProfile(data.userProfile || {});
 
-    metrics.forEach(m => {
-        const status = analysis[m.key] || 'neutral';
-        const span = document.createElement('span');
-        span.className = `ai-tag ai-tag-${status}`;
-        span.innerText = m.label;
-        tagWrapper.appendChild(span);
+        // Language requirement tags
+        const reqLangs = Array.isArray(analysis.language) ? analysis.language.map(nl) : [];
+        if (reqLangs.length === 0) {
+            addTag(tagWrapper, 'language', 'neutral');
+        } else {
+            const matched = reqLangs.filter(l => profile.languages.includes(l));
+            const unmatched = reqLangs.filter(l => !profile.languages.includes(l));
+            matched.forEach(l => addTag(tagWrapper, l, 'positive'));
+            unmatched.forEach(l => addTag(tagWrapper, l, 'negative'));
+        }
+
+        // Work permit tags
+        const visaReq = nl(analysis.visa_requirement || '');
+        if (!visaReq) {
+            addTag(tagWrapper, 'visa', 'neutral');
+        } else {
+            const label = `(${visaReq}) visa`;
+            if (profile.visa_places.includes(visaReq)) addTag(tagWrapper, label, 'positive');
+            else addTag(tagWrapper, label, 'negative');
+        }
+
+        // Residence requirement tags
+        const residenceReq = typeof analysis.residence_requirement === 'boolean' ? analysis.residence_requirement : null;
+        if (residenceReq === null) {
+            addTag(tagWrapper, 'residence', 'neutral');
+        } else if (residenceReq === true) {
+            const place = visaReq; // best-available location key from JD
+            if (place && profile.residence_places.includes(place)) addTag(tagWrapper, 'residence', 'positive');
+            else addTag(tagWrapper, 'residence', 'negative');
+        } else {
+            addTag(tagWrapper, 'residence', 'neutral');
+        }
+
+        // Experience tags
+        const expReq = Number.isFinite(analysis.experience) ? analysis.experience : null;
+        if (expReq === null) {
+            addTag(tagWrapper, 'exp', 'neutral');
+        } else {
+            const label = `${expReq} yoe`;
+            if (profile.experience === expReq) addTag(tagWrapper, label, 'positive');
+            else addTag(tagWrapper, label, 'negative');
+        }
+
+        // JD language tags
+        const jdLangs = Array.isArray(analysis.JD_language) ? analysis.JD_language.map(nl) : [];
+        if (jdLangs.length) {
+            const matchedJD = jdLangs.filter(l => profile.expected_jd_languages.includes(l));
+            if (matchedJD.length) {
+                matchedJD.forEach(l => addTag(tagWrapper, `JD (${l})`, 'positive'));
+            } else {
+                addTag(tagWrapper, `JD (${jdLangs.join(', ')})`, 'negative');
+            }
+        } else {
+            addTag(tagWrapper, 'JD', 'neutral');
+        }
+
+        card.appendChild(tagWrapper);
     });
+}
 
-    // Inject into the card's metadata area
-    card.appendChild(tagWrapper);
+function addTag(wrapper, text, status) {
+    const span = document.createElement('span');
+    span.className = `ai-tag ai-tag-${status}`;
+    span.innerText = text;
+    wrapper.appendChild(span);
+}
+
+function nl(s) { return String(s).trim().toLowerCase(); }
+
+function normalizeProfile(up) {
+    const toArr = (v) => Array.isArray(v) ? v.map(nl) : (v ? String(v).split(',').map(nl) : []);
+    return {
+        languages: toArr(up.languages || up.langs),
+        visa_places: toArr(up.visa_places || up.visas),
+        residence_places: toArr(up.residence_places),
+        experience: Number.isFinite(up.experience) ? up.experience : (Number.isFinite(up.exp) ? up.exp : 0),
+        expected_jd_languages: toArr(up.expected_jd_languages || up.prefLang)
+    };
 }
 
 function showLoading(card) {

@@ -23,17 +23,20 @@
     <section class="settings-section">
       <h3>My Profile (AI Context)</h3>
       <div class="grid-form">
-        <label for="user-langs">Languages:</label>
-        <input type="text" id="user-langs" placeholder="English, Cantonese, Japanese...">
-        
-        <label for="user-visas">Visa Status:</label>
-        <input type="text" id="user-visas" placeholder="HK Permanent Resident, etc.">
-        
+        <label>Languages:</label>
+        <div id="profile-languages" class="tag-input" data-key="languages"></div>
+
+        <label>Work Permit Places:</label>
+        <div id="profile-visa-places" class="tag-input" data-key="visa_places"></div>
+
+        <label>Residence Places:</label>
+        <div id="profile-residence-places" class="tag-input" data-key="residence_places"></div>
+
         <label for="user-exp">Experience (Yrs):</label>
         <input type="number" id="user-exp" min="0">
-        
-        <label for="jd-pref-lang">Expected JD Lang:</label>
-        <input type="text" id="jd-pref-lang" placeholder="English">
+
+        <label>Expected JD Languages:</label>
+        <div id="profile-jd-languages" class="tag-input" data-key="expected_jd_languages"></div>
       </div>
     </section>
 
