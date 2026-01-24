@@ -7,8 +7,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         getJobDescription(sendResponse);
         return true;
     }
+    if (request.action === "FETCH_PARSE_JD") {
+        fetchAndParseJD(request.url).then(text => sendResponse({ text }));
+        return true;
+    }
     return true;
 });
+
+async function fetchAndParseJD(url) {
+    try {
+        const response = await fetch(url);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Strategy 3: Find the "About the job" header and get its parent container's text
+        const headers = Array.from(doc.querySelectorAll('h2, h3'));
+        const aboutHeader = headers.find(h =>
+            /about the job|job description|description/i.test(h.innerText)
+        );
+
+        if (aboutHeader) {
+            // Typically, the content is in a sibling or a parent container
+            // We'll take the parent container's text as a safe bet for full JD context
+            return aboutHeader.parentElement.innerText;
+        }
+
+        // Fallback: If no header found, take the largest <article> or <main> text
+        const mainContent = doc.querySelector('article') || doc.querySelector('main');
+        return mainContent ? mainContent.innerText : null;
+    } catch (e) {
+        console.error("JD Parse Error", e);
+        return null;
+    }
+}
 
 function getJobBasicInfo(sendResponse) {
     const roleAnchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a');
@@ -222,7 +254,7 @@ function scanJobCards() {
             card.appendChild(loader);
 
             // Send to background queue for analysis
-            chrome.runtime.sendMessage({ action: "ANALYZE_BATCH", jobId }, (result) => {
+            chrome.runtime.sendMessage({ action: "ANALYZE_JD", jobId }, (result) => {
                 if (result && !result.error) {
                     injectAITags(card, result);
                 } else {
@@ -235,11 +267,12 @@ function scanJobCards() {
 }
 
 // Performance-optimized observer
+// Trailing Edge Debounce: delays execution until 500ms of silence.
 let timeout = null;
 const observer = new MutationObserver(() => {
-  if (timeout) clearTimeout(timeout);
-  // Throttle the scan to once every 500ms during fast scrolling
-  timeout = setTimeout(scanJobCards, 500);
+    if (timeout) 
+        clearTimeout(timeout);
+    timeout = setTimeout(scanJobCards, 500);
 });
 
 // Start observing the job list container

@@ -3,19 +3,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // Retrieve user settings from storage
         return handleGoogleSheets(request, sender, sendResponse);
     }
-    if (request.action === "ANALYZE_BATCH") {
-        (async () => {
-            const jdText = await fetchJD(request.jobId);
-            if (!jdText) {
-                sendResponse({ error: "Could not fetch JD" });
-                return;
-            }
-            const analysis = await handleAIAnalysis(jdText); // Your Qwen logic
-            sendResponse(analysis);
-        })();
-        return true;
+    if (request.action === "ANALYZE_JD") {
+        return handleAnalyzeJD(request, sender, sendResponse);
     }
+    return true;
 });
+
+function handleAnalyzeJD(request, sender, sendResponse) {
+    queue.push({ 
+        jobId: request.jobId, 
+        sendResponse,
+        tabId: sender.tab.id // Capture tab ID for callback
+    });
+    processQueue();
+    return true;
+}
 
 function handleGoogleSheets(request, sender, sendResponse) {
     // Retrieve user settings from storage
@@ -39,9 +41,52 @@ function handleGoogleSheets(request, sender, sendResponse) {
     return true;
 }
 
+let isProcessing = false;
+const queue = [];
+
+async function processQueue() {
+    if (isProcessing || queue.length === 0) return;
+    isProcessing = true;
+
+    const { jobId, sendResponse, tabId } = queue.shift();
+    const url = `https://www.linkedin.com/jobs/view/${jobId}/`;
+
+    // 1. Ask content script to fetch and parse JD
+    try {
+        chrome.tabs.sendMessage(tabId, { action: "FETCH_PARSE_JD", url }, async (response) => {
+            if (chrome.runtime.lastError) {
+                console.error(chrome.runtime.lastError);
+                sendResponse({ error: "Tab closed or error" });
+                next();
+                return;
+            }
+
+            if (response && response.text) {
+                // 2. Analyze with Qwen
+                const result = await handleAIAnalysis(response.text);
+                sendResponse(result);
+            } else {
+                sendResponse({ error: "Could not fetch JD" });
+            }
+            next();
+        });
+    } catch (e) {
+        console.error("Message sending failed", e);
+        sendResponse({ error: "Communication Error" });
+        next();
+    }
+
+    function next() {
+        // 3. Wait 1.5 seconds before next job to avoid detection
+        setTimeout(() => {
+            isProcessing = false;
+            processQueue();
+        }, 1500);
+    }
+}
 
 const QWEN_ENDPOINT = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
-
+const model_name = "qwen-flash";
 
 async function handleAIAnalysis(jdText) {
     const settings = await chrome.storage.sync.get(['qwenUrl', 'qwenKey', 'userProfile']);
@@ -59,6 +104,9 @@ async function handleAIAnalysis(jdText) {
         3. Experience: Compare years.
         4. JD Language: Is it the expected language?
 
+        If the given content is not a proper JD, 
+        return an empty JSON object.
+
         Return ONLY a JSON object:
         {
         "lang_match": "positive" | "negative" | "neutral",
@@ -67,6 +115,7 @@ async function handleAIAnalysis(jdText) {
         "jd_lang_match": "positive" | "negative",
         "summary": "one short sentence"
         }`;
+        
     try {
         const response = await fetch(apiUrl, {
             method: "POST",
@@ -75,7 +124,7 @@ async function handleAIAnalysis(jdText) {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "qwen-plus",
+                model: model_name,
                 messages: [
                     { role: "system", content: systemPrompt }, // System prompt from previous step
                     { role: "user", content: `JD: ${jdText}` }
@@ -90,66 +139,3 @@ async function handleAIAnalysis(jdText) {
     }
 }
 
-
-async function fetchJD(jobId) {
-    const url = `https://www.linkedin.com/jobs/view/${jobId}/`;
-    try {
-        const response = await fetch(url);
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        // Strategy 3: Find the "About the job" header and get its parent container's text
-        const headers = Array.from(doc.querySelectorAll('h2, h3'));
-        const aboutHeader = headers.find(h =>
-            /about the job|job description|description/i.test(h.innerText)
-        );
-
-        if (aboutHeader) {
-            // Typically, the content is in a sibling or a parent container
-            // We'll take the parent container's text as a safe bet for full JD context
-            return aboutHeader.parentElement.innerText;
-        }
-
-        // Fallback: If no header found, take the largest <article> or <main> text
-        const mainContent = doc.querySelector('article') || doc.querySelector('main');
-        return mainContent ? mainContent.innerText : null;
-    } catch (e) {
-        return null;
-    }
-}
-
-let isProcessing = false;
-const queue = [];
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "ANALYZE_BATCH") {
-        queue.push({ jobId: request.jobId, sendResponse });
-        processQueue();
-        return true; // Keep channel open
-    }
-});
-
-async function processQueue() {
-    if (isProcessing || queue.length === 0) return;
-    isProcessing = true;
-
-    const { jobId, sendResponse } = queue.shift();
-
-    // 1. Fetch the JD
-    const jdText = await fetchJD(jobId);
-
-    if (jdText) {
-        // 2. Analyze with Qwen
-        const result = await handleAIAnalysis(jdText);
-        sendResponse(result);
-    } else {
-        sendResponse({ error: "No JD found" });
-    }
-
-    // 3. Wait 1.5 seconds before next job to avoid detection
-    setTimeout(() => {
-        isProcessing = false;
-        processQueue();
-    }, 1500);
-}

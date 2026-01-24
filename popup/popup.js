@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
+    // immediately get job info after popup is opened
     chrome.tabs.sendMessage(tab.id, { action: "GET_JOB_BASIC_INFO" }, (response) => {
         if (response) {
             const date = new Date().toLocaleDateString();
@@ -30,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Save via API button
+    // Save job info to Google Sheets via API button
     document.getElementById('save-btn').addEventListener('click', () => {
         if (!window.currentJobData) return;
 
