@@ -42,6 +42,21 @@ async function fetchAndParseJD(url) {
     }
 }
 
+function extractJobCountry() {
+    const locElement = document.querySelector(
+        '.job-details-jobs-unified-top-card__primary-description-container span.tvm__text--low-emphasis');
+    const jobLocation = locElement ? locElement.innerText.trim() : "Not Found";
+    // location +  "·" + post date + "·" + num applicants + ...
+    const jobCityCountry = jobLocation.split('·')[0].trim();
+    const splitted = jobCityCountry.split(',');
+    const rawLocation = splitted[splitted.length - 1].trim();
+    // convert Hong Kong SAR to Hong Kong
+    if (rawLocation === "Hong Kong SAR") {
+        return "Hong Kong";
+    }
+    return rawLocation;
+}
+
 function getJobBasicInfo(sendResponse) {
     const roleAnchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a');
     const roleName = roleAnchor ? roleAnchor.innerText.trim() : "Not Found";
@@ -57,9 +72,7 @@ function getJobBasicInfo(sendResponse) {
 
     // 3. Precise Location Extraction
     // We target the FIRST span with the specific LinkedIn emphasis class
-    const locElement = document.querySelector(
-        '.job-details-jobs-unified-top-card__primary-description-container span.tvm__text--low-emphasis');
-    const jobLocation = locElement ? locElement.innerText.trim() : "Not Found";
+    const jobLocation = extractJobCountry();    
 
     sendResponse({
         role: roleName,
@@ -197,7 +210,7 @@ function htmlToMarkdown(element) {
     return md.trim();
 }
 
-function injectAITags(card, analysis) {
+function injectAITags(card, analysis, jobLocation) {
     const loader = card.querySelector('.ai-loading-status');
     if (loader) loader.remove();
 
@@ -219,25 +232,24 @@ function injectAITags(card, analysis) {
         }
 
         // Work permit tags
-        const visaReq = nl(analysis.visa_requirement || '');
-        if (!visaReq) {
+        jobLocation = nl(jobLocation);
+        const workPermitReq = (typeof analysis.visa_requirement === 'string' && nl(analysis.visa_requirement)) ? true : (typeof analysis.work_permit === 'boolean' ? analysis.work_permit : null);
+        if (workPermitReq === null || workPermitReq === false) {
             addTag(tagWrapper, 'visa', 'neutral');
+        } else if (profile.visa_places.includes(jobLocation)) {
+            addTag(tagWrapper, `(${jobLocation}) visa`, 'positive');
         } else {
-            const label = `(${visaReq}) visa`;
-            if (profile.visa_places.includes(visaReq)) addTag(tagWrapper, label, 'positive');
-            else addTag(tagWrapper, label, 'negative');
+            addTag(tagWrapper, `(${jobLocation}) visa`, 'negative');
         }
 
         // Residence requirement tags
         const residenceReq = typeof analysis.residence_requirement === 'boolean' ? analysis.residence_requirement : null;
-        if (residenceReq === null) {
+        if (residenceReq === null || residenceReq === false) {
             addTag(tagWrapper, 'residence', 'neutral');
-        } else if (residenceReq === true) {
-            const place = visaReq; // best-available location key from JD
-            if (place && profile.residence_places.includes(place)) addTag(tagWrapper, 'residence', 'positive');
-            else addTag(tagWrapper, 'residence', 'negative');
+        } else if (profile.residence_places.includes(jobLocation)) {
+            addTag(tagWrapper, 'residence', 'positive');
         } else {
-            addTag(tagWrapper, 'residence', 'neutral');
+            addTag(tagWrapper, 'residence', 'negative');
         }
 
         // Experience tags
@@ -246,7 +258,7 @@ function injectAITags(card, analysis) {
             addTag(tagWrapper, 'exp', 'neutral');
         } else {
             const label = `${expReq} yoe`;
-            if (profile.experience === expReq) addTag(tagWrapper, label, 'positive');
+            if (profile.experience >= expReq) addTag(tagWrapper, label, 'positive');
             else addTag(tagWrapper, label, 'negative');
         }
 
@@ -331,6 +343,8 @@ function scanJobCards() {
     processJobQueue();
 }
 
+
+
 async function processJobQueue() {
     if (!aiEnabled) {
         isProcessingQueue = false;
@@ -364,6 +378,7 @@ async function processJobQueue() {
             loader.innerText = 'AI Analysing...';
             // 3. Extract Description
             const description = extractDescription();
+            const jobLocation = extractJobCountry();
             
             if (aiEnabled && description && description.length > 50) {
                  // 4. Send to background
@@ -373,7 +388,7 @@ async function processJobQueue() {
                  });
 
                  if (result && !result.error) {
-                     injectAITags(card, result);
+                     injectAITags(card, result, jobLocation);
                  } else {
                      loader.innerText = 'AI Failed';
                      loader.style.color = '#d93025';
