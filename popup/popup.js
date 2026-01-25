@@ -1,9 +1,26 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    // immediately get job info after popup is opened
-    chrome.tabs.sendMessage(tab.id, { action: "GET_JOB_BASIC_INFO" }, (response) => {
-        if (response) {
+    async function sendMessageSafe(tabId, msg) {
+        return new Promise(resolve => {
+            if (!tabId) return resolve(null);
+            try {
+                chrome.tabs.sendMessage(tabId, msg, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        resolve(null);
+                    } else {
+                        resolve(resp);
+                    }
+                });
+            } catch (_) {
+                resolve(null);
+            }
+        });
+    }
+
+    const basicInfo = tab ? await sendMessageSafe(tab.id, { action: "GET_JOB_BASIC_INFO" }) : null;
+    if (basicInfo) {
+        const response = basicInfo;
             const date = new Date().toLocaleDateString();
             // Split location logic (e.g., "Central, Hong Kong SAR")
             const parts = response.location.split(',').map(s => s.trim());
@@ -28,8 +45,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             window.currentJobData = { ...response, place, state, date };
-        }
-    });
+    } else {
+        document.getElementById('status-msg').textContent = "Open a supported job page.";
+    }
 
     // AI Toggle
     const toggleEl = document.getElementById('ai-toggle');
@@ -63,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Copy Description Button
-    document.getElementById('copy-desc-btn').addEventListener('click', () => {
+    document.getElementById('copy-desc-btn').addEventListener('click', async () => {
         const data = window.currentJobData;
         if (!data) {
              document.getElementById('status-msg').textContent = "No data to copy.";
@@ -74,15 +92,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             copyMarkdown(data);
         } else {
             document.getElementById('status-msg').textContent = "Fetching description...";
-            chrome.tabs.sendMessage(tab.id, { action: "GET_JOB_DESCRIPTION" }, (resp) => {
-                if (resp && resp.description) {
-                    data.description = resp.description;
-                    window.currentJobData.description = resp.description; // Update global state
-                    copyMarkdown(data);
-                } else {
-                    document.getElementById('status-msg').textContent = "Failed to fetch description.";
-                }
-            });
+            const resp = tab ? await sendMessageSafe(tab.id, { action: "GET_JOB_DESCRIPTION" }) : null;
+            if (resp && resp.description) {
+                data.description = resp.description;
+                window.currentJobData.description = resp.description;
+                copyMarkdown(data);
+            } else {
+                document.getElementById('status-msg').textContent = "Failed to fetch description.";
+            }
         }
     });
 
