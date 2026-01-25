@@ -366,7 +366,7 @@ async function processJobQueue() {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         
         // Small delay after scroll
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 150));
         
         clickTarget.click();
         loader.innerText = 'Loading JD...';
@@ -381,18 +381,19 @@ async function processJobQueue() {
             const jobLocation = extractJobCountry();
             
             if (aiEnabled && description && description.length > 50) {
-                 // 4. Send to background
-                 const result = await sendMessageAsync({ 
+                 // 4. Send to background asynchronously; proceed to next card without waiting
+                 chrome.runtime.sendMessage({ 
                      action: "ANALYZE_WITH_CONTENT", 
-                     text: description 
+                     text: description,
+                     jobId 
+                 }, (result) => {
+                     if (result && !result.error) {
+                         injectAITags(card, result, jobLocation);
+                     } else {
+                         loader.innerText = 'AI Failed';
+                         loader.style.color = '#d93025';
+                     }
                  });
-
-                 if (result && !result.error) {
-                     injectAITags(card, result, jobLocation);
-                 } else {
-                     loader.innerText = 'AI Failed';
-                     loader.style.color = '#d93025';
-                 }
             } else {
                  loader.innerText = 'No JD Text';
             }
@@ -409,7 +410,7 @@ async function processJobQueue() {
     setTimeout(() => {
         isProcessingQueue = false;
         processJobQueue();
-    }, 1500);
+    }, 250);
 }
 
 function sendMessageAsync(msg) {
