@@ -42,7 +42,7 @@ async function fetchAndParseJD(url) {
     }
 }
 
-function extractJobCountry() {
+function extractLinkedInLocation() {
     const locElement = document.querySelector(
         '.job-details-jobs-unified-top-card__primary-description-container span.tvm__text--low-emphasis');
     const jobLocation = locElement ? locElement.innerText.trim() : "Not Found";
@@ -57,29 +57,48 @@ function extractJobCountry() {
     return rawLocation;
 }
 
-function getJobBasicInfo(sendResponse) {
-    const roleAnchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a');
-    const roleName = roleAnchor ? roleAnchor.innerText.trim() : "Not Found";
-    let jobLink = "Not Found";
-    if (roleAnchor) {
-        const path = roleAnchor.getAttribute('href').split('?')[0];
-        jobLink = path.startsWith('http') ? path : `https://www.linkedin.com${path}`;
+function extractDaijobLocation() {
+    const anchors = Array.from(document.querySelectorAll('a[href*="/jobs/search"]'));
+    const texts = anchors.map(a => a.textContent.trim()).filter(Boolean);
+    let country = '';
+    for (const t of texts) {
+        if (/japan/i.test(t)) { country = 'Japan'; break; }
     }
+    if (!country && texts.length) country = texts.find(t => /[A-Za-z]/.test(t)) || texts[0];
+    return country || 'Not Found';
+}
 
-    // 2. Extract Company
-    const companyAnchor = document.querySelector('.job-details-jobs-unified-top-card__company-name a');
-    const companyName = companyAnchor ? companyAnchor.innerText.trim() : "Not Found";
-
-    // 3. Precise Location Extraction
-    // We target the FIRST span with the specific LinkedIn emphasis class
-    const jobLocation = extractJobCountry();    
-
-    sendResponse({
-        role: roleName,
-        company: companyName,
-        location: jobLocation, // e.g., "Tokyo, Tokyo, Japan" or "Central, Hong Kong SAR"
-        link: jobLink
-    });
+function getJobBasicInfo(sendResponse) {
+    const host = location.hostname;
+    if (host.includes('daijob.com')) {
+        const titleSpan = document.querySelector('.jobs_box_header_position h4 span');
+        const roleName = titleSpan ? titleSpan.textContent.trim() : 'Not Found';
+        let companyName = 'Not Found';
+        const rows = Array.from(document.querySelectorAll('tr'));
+        for (const r of rows) {
+            const thSpan = r.querySelector('th span');
+            if (thSpan && /company name/i.test(thSpan.textContent)) {
+                const h4 = r.querySelector('td h4');
+                companyName = h4 ? h4.textContent.trim() : 'Not Found';
+                break;
+            }
+        }
+        const jobLocation = extractDaijobLocation();
+        const jobLink = location.href;
+        sendResponse({ role: roleName, company: companyName, location: jobLocation, link: jobLink });
+    } else {
+        const roleAnchor = document.querySelector('.job-details-jobs-unified-top-card__job-title a');
+        const roleName = roleAnchor ? roleAnchor.innerText.trim() : "Not Found";
+        let jobLink = "Not Found";
+        if (roleAnchor) {
+            const path = roleAnchor.getAttribute('href').split('?')[0];
+            jobLink = path.startsWith('http') ? path : `https://www.linkedin.com${path}`;
+        }
+        const companyAnchor = document.querySelector('.job-details-jobs-unified-top-card__company-name a');
+        const companyName = companyAnchor ? companyAnchor.innerText.trim() : "Not Found";
+        const jobLocation = extractLinkedInLocation();    
+        sendResponse({ role: roleName, company: companyName, location: jobLocation, link: jobLink });
+    }
 }
 
 function getJobDescription(sendResponse) {
@@ -378,7 +397,7 @@ async function processJobQueue() {
             loader.innerText = 'AI Analysing...';
             // 3. Extract Description
             const description = extractDescription();
-            const jobLocation = extractJobCountry();
+            const jobLocation = extractLinkedInLocation();
             
             if (aiEnabled && description && description.length > 50) {
                  // 4. Send to background asynchronously; proceed to next card without waiting

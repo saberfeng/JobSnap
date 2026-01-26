@@ -17,7 +17,8 @@
         "https://*.indeed.com/*",
         "https://*.seek.com.au/*",
         "https://script.google.com/*",
-        "https://dashscope.aliyuncs.com/*"
+        "https://dashscope.aliyuncs.com/*",
+        "https://*.daijob.com/*"
     ],
     "action": {
         "default_popup": "popup/popup.html",
@@ -32,7 +33,7 @@
         {
             "matches": [
                 "https://*.linkedin.com/*",
-                "https://*.indeed.com/*"
+                "https://*.daijob.com/*"
             ],
             "js": [
                 "scripts/content.js"
